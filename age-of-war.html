@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Age of War</title>
+    <style>
+        canvas {
+            border: 1px solid #000;
+            background-color: #ffffff;
+        }
+        #controls {
+            margin-top: 10px;
+        }
+        #money {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        #warning {
+            color: red;
+            font-size: 14px;
+            margin-left: 10px;
+            visibility: hidden;
+        }
+    </style>
+</head>
+<body>
+    <audio id="background-audio" autoplay loop>
+        <source src="soundtrack.mp3" type="audio/mpeg">
+    </audio>
+    <div id="money">Argent : 0<span id="warning"> Pas assez d'argent pour créer une unité !</span></div>
+    <canvas id="battlefield" width="800" height="400"></canvas>
+    <div id="controls">
+        <button onclick="spawnUnit('player')">Créer une unité (50)</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('battlefield');
+        const context = canvas.getContext('2d');
+        const units = [];
+        const turrets = [];
+        const unitSpeed = 2;
+        const attackCooldown = 500;
+        const attackDistance = 30;
+        const turretRange = 100;
+        const turretCooldown = 1000;
+        let playerMoney = 0;
+        let warningTimeout;
+        let lastUnitSpawnTime = 0;
+
+        document.body.addEventListener('click', function() {
+            const audio = document.getElementById('background-audio');
+            audio.muted = false;
+        });
+
+        class Unit {
+            constructor(x, y, type, isBot = false) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.isBot = isBot;
+                this.health = 100;
+                this.maxHealth = 100;
+                this.width = 20;
+                this.height = 20;
+                this.color = isBot ? 'red' : (type === 'player' ? 'blue' : 'red');
+                this.lastAttackTime = 0;
+            }
+
+            draw() {
+                context.fillStyle = this.color;
+                context.fillRect(this.x, this.y, this.width, this.height);
+
+                const healthBarWidth = this.width * (this.health / this.maxHealth);
+                context.fillStyle = 'red';
+                context.fillRect(this.x, this.y - 10, this.width, 5);
+                context.fillStyle = 'green';
+                context.fillRect(this.x, this.y - 10, healthBarWidth, 5);
+            }
+
+            move() {
+                this.x += this.type === 'player' ? unitSpeed : -unitSpeed;
+            }
+
+            isColliding(other) {
+                const distance = Math.abs(this.x - other.x);
+                return distance <= attackDistance;
+            }
+
+            attack(other) {
+                const currentTime = Date.now();
+                if (currentTime - this.lastAttackTime >= attackCooldown) {
+                    other.health -= 10;
+                    this.lastAttackTime = currentTime;
+                    if (other.health <= 0) {
+                        const index = units.indexOf(other);
+                        if (index > -1) units.splice(index, 1);
+                        if (!this.isBot && other.isBot) {
+                            playerMoney += 20;
+                            updateMoneyDisplay();
+                        }
+                    }
+                }
+            }
+        }
+
+        class Turret {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.range = turretRange;
+                this.lastAttackTime = 0;
+            }
+
+            draw() {
+                context.fillStyle = this.type === 'player' ? 'blue' : 'red';
+                context.fillRect(this.x, this.y, 20, 20);
+            }
+
+            attack() {
+                const currentTime = Date.now();
+                if (currentTime - this.lastAttackTime >= turretCooldown) {
+                    const targets = units.filter(unit => 
+                        ((this.type === 'player' && unit.isBot === true) || 
+                        (this.type === 'enemy' && unit.isBot === false)) &&
+                        Math.abs(this.x - unit.x) <= this.range
+                    );
+
+                    if (targets.length > 0) {
+                        targets[0].health -= 40;
+                        if (targets[0].health <= 0) {
+                            const index = units.indexOf(targets[0]);
+                            if (index > -1) units.splice(index, 1);
+                            if (this.type === 'player') {
+                                playerMoney += 20;
+                                updateMoneyDisplay();
+                            }
+                        }
+                        this.lastAttackTime = currentTime;
+                    }
+                }
+            }
+        }
+
+        function spawnUnit(type, isBot = false) {
+            const unitCost = 50;
+            const warning = document.getElementById('warning');
+            const currentTime = Date.now();
+
+            if (currentTime - lastUnitSpawnTime < 1000) {
+                return;
+            }
+
+            if (type === 'player' && playerMoney >= unitCost) {
+                playerMoney -= unitCost;
+                updateMoneyDisplay();
+                warning.style.visibility = 'hidden';
+                clearTimeout(warningTimeout);
+                lastUnitSpawnTime = currentTime;
+            } else if (type === 'player' && playerMoney < unitCost) {
+                clearTimeout(warningTimeout);
+                warning.style.visibility = 'visible';
+                warningTimeout = setTimeout(() => {
+                    warning.style.visibility = 'hidden';
+                }, 3000);
+                return;
+            }
+
+            const y = 200;
+            const x = type === 'player' ? 0 : canvas.width - 20;
+            units.push(new Unit(x, y, type, isBot));
+        }
+
+        function updateMoneyDisplay() {
+            document.getElementById('money').firstChild.textContent = `Argent : ${playerMoney}`;
+        }
+
+        function startBot() {
+            setInterval(() => {
+                spawnUnit('enemy', true);
+            }, 10000);
+        }
+
+        function increaseMoneyOverTime() {
+            setInterval(() => {
+                playerMoney += 50;
+                updateMoneyDisplay();
+            }, 2000);
+        }
+
+        function gameLoop() {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+
+            turrets.forEach(turret => {
+                turret.draw();
+                turret.attack();
+            });
+
+            units.forEach(unit => {
+                // Filtrer uniquement les ennemis pour l'attaque
+                const closeEnemies = units.filter(otherUnit => 
+                    unit !== otherUnit &&
+                    unit.isColliding(otherUnit) &&
+                    unit.isBot !== otherUnit.isBot // Assure que l'unité n'attaque que les ennemis
+                );
+
+                if (closeEnemies.length > 0) {
+                    unit.attack(closeEnemies[0]);
+                } else {
+                    unit.move();
+                }
+
+                unit.draw();
+            });
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        turrets.push(new Turret(10, 150, 'player'));
+        turrets.push(new Turret(canvas.width - 30, 150, 'enemy'));
+
+        startBot();
+        increaseMoneyOverTime();
+        gameLoop();
+    </script>
+</body>
+</html>
