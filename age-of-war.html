@@ -19,11 +19,33 @@
         #warning {
             color: red;
             font-size: 14px;
-            margin-left: 10px;
+            position: fixed;
+            top: 10px; /* Position en haut de l'écran */
+            left: 50%;
+            transform: translateX(-50%); /* Centre horizontalement */
             visibility: hidden;
+            background-color: rgba(255, 255, 255, 0.8); /* Fond légèrement opaque pour lisibilité */
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-weight: bold;
         }
-        #volume-control {
-            margin-top: 10px;
+        .hp-bar {
+            width: 200px;
+            height: 20px;
+            background-color: #ddd;
+            position: absolute;
+            top: 10px;
+        }
+        .hp-bar .hp-inner {
+            height: 100%;
+            background-color: #00ff00; /* Couleur verte pour la barre de vie */
+            width: 100%;
+        }
+        #player-hp {
+            left: 10px; /* Position de la barre du joueur */
+        }
+        #enemy-hp {
+            right: 10px; /* Position de la barre de l'ennemi */
         }
     </style>
 </head>
@@ -33,9 +55,18 @@
     </audio>
     <div id="money">Argent : 0<span id="warning"> Pas assez d'argent pour créer une unité !</span></div>
     <canvas id="battlefield" width="800" height="400"></canvas>
+
+    <!-- Barres de HP pour les bases -->
+    <div id="player-hp" class="hp-bar">
+        <div class="hp-inner" id="player-hp-inner"></div>
+    </div>
+    <div id="enemy-hp" class="hp-bar">
+        <div class="hp-inner" id="enemy-hp-inner"></div>
+    </div>
+
     <div id="controls">
         <button onclick="spawnUnit('player')">Créer une unité (50)</button>
-        <button id="play-pause-btn" onclick="togglePlayPause()">Pause</button> <!-- Bouton Play/Pause -->
+        <button id="play-pause-btn" onclick="togglePlayPause()">Pause</button>
         <label id="volume-control">Volume : 
             <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" onchange="adjustVolume()">
         </label>
@@ -58,6 +89,12 @@
         const playPauseBtn = document.getElementById('play-pause-btn');
         const volumeSlider = document.getElementById('volume-slider');
 
+        // Variables pour les HP des bases
+        let playerBaseHP = 100;
+        let enemyBaseHP = 100;
+        const playerHPBar = document.getElementById('player-hp-inner');
+        const enemyHPBar = document.getElementById('enemy-hp-inner');
+
         document.body.addEventListener('click', function() {
             audio.muted = false;
         });
@@ -76,6 +113,12 @@
         // Fonction pour ajuster le volume
         function adjustVolume() {
             audio.volume = volumeSlider.value;
+        }
+
+        // Mettre à jour la barre de HP des bases
+        function updateBaseHPBars() {
+            playerHPBar.style.width = `${(playerBaseHP / 100) * 100}%`;
+            enemyHPBar.style.width = `${(enemyBaseHP / 100) * 100}%`;
         }
 
         class Unit {
@@ -237,6 +280,9 @@
 
                 unit.draw();
             });
+
+            // Mise à jour des barres de HP des bases
+            updateBaseHPBars();
 
             requestAnimationFrame(gameLoop);
         }
