@@ -32,6 +32,7 @@
     <canvas id="battlefield" width="800" height="400"></canvas>
     <div id="controls">
         <button onclick="spawnUnit('player')">Créer une unité (50)</button>
+        <button id="play-pause-btn" onclick="togglePlayPause()">Pause</button> <!-- Bouton Play/Pause -->
     </div>
     <script>
         const canvas = document.getElementById('battlefield');
@@ -47,10 +48,23 @@
         let warningTimeout;
         let lastUnitSpawnTime = 0;
 
+        const audio = document.getElementById('background-audio');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+
         document.body.addEventListener('click', function() {
-            const audio = document.getElementById('background-audio');
             audio.muted = false;
         });
+
+        // Fonction pour basculer entre lecture et pause du son
+        function togglePlayPause() {
+            if (audio.paused) {
+                audio.play();
+                playPauseBtn.textContent = 'Pause';
+            } else {
+                audio.pause();
+                playPauseBtn.textContent = 'Play';
+            }
+        }
 
         class Unit {
             constructor(x, y, type, isBot = false) {
@@ -197,11 +211,10 @@
             });
 
             units.forEach(unit => {
-                // Filtrer uniquement les ennemis pour l'attaque
                 const closeEnemies = units.filter(otherUnit => 
                     unit !== otherUnit &&
                     unit.isColliding(otherUnit) &&
-                    unit.isBot !== otherUnit.isBot // Assure que l'unité n'attaque que les ennemis
+                    unit.isBot !== otherUnit.isBot
                 );
 
                 if (closeEnemies.length > 0) {
